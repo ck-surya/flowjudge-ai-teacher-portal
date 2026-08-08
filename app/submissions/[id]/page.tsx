@@ -1,171 +1,157 @@
 'use client'
 
-import { useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Badge } from '@/components/badge'
 import { ChevronLeft } from 'lucide-react'
+import { getSubmission, getReviewBySubmissionId, saveReview, rejudgeSubmission, type Submission } from '@/lib/teacherService'
 
-const mockSubmission = {
-  id: '1',
-  student: 'Alex Chen',
-  email: 'alex@example.com',
-  class: 'Programming Fundamentals',
-  module: 'Loops',
-  problem: 'Fibonacci',
-  submissionTime: '2024-01-15 14:30:45',
-  flowchartUrl: '/flowchart-placeholder.png',
-  automaticStatus: 'Completed',
-  verdict: 'Correct',
-  domjudgeId: 'submission-12345',
-  generatedCode: `#include <iostream>
-using namespace std;
-
-int main() {
-    int n;
-    cin >> n;
-    
-    if (n >= 1) cout << 0;
-    if (n >= 2) cout << " 1";
-    
-    if (n > 2) {
-        int a = 0, b = 1;
-        for (int i = 2; i < n; i++) {
-            int c = a + b;
-            cout << " " << c;
-            a = b;
-            b = c;
-        }
-    }
-    
-    cout << endl;
-    return 0;
-}`,
-  language: 'C++',
+type SubmissionPageProps = {
+  params: Promise<{ id: string }>
 }
 
-export default function SubmissionDetailPage() {
-  const [verdict, setVerdict] = useState('Correct')
+export default function SubmissionDetailPage({ params }: SubmissionPageProps) {
+  const { id } = use(params)
+  const [submission, setSubmission] = useState<Submission | null>(null)
+  const [verdict, setVerdict] = useState<'CORRECT' | 'INCORRECT' | 'NEEDS_CHANGES'>('CORRECT')
   const [feedback, setFeedback] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
-  const handleSave = async () => {
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      const row = await getSubmission(id)
+      const review = await getReviewBySubmissionId(id)
+      if (!mounted) return
+      if (row) {
+        setSubmission(row)
+        if (review?.teacherVerdict && ['CORRECT', 'INCORRECT', 'NEEDS_CHANGES'].includes(review.teacherVerdict)) {
+          setVerdict(review.teacherVerdict as 'CORRECT' | 'INCORRECT' | 'NEEDS_CHANGES')
+        }
+        if (review?.feedback) setFeedback(review.feedback)
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [id])
+
+  const handleSave = async (publish = false) => {
+    if (!submission) return
     setIsSaving(true)
-    // Simulate save
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await saveReview(submission.id, verdict, feedback, publish ? 'REVIEWED' : 'IN_REVIEW')
+    const next = await getSubmission(id)
+    setSubmission(next ?? null)
     setIsSaving(false)
   }
 
+  if (!submission) {
+    return (
+      <DashboardLayout title="Submission Review" subtitle="loading...">
+        <p className="text-muted-foreground">Loading submission</p>
+      </DashboardLayout>
+    )
+  }
+
+  const autoStatusMap = {
+    COMPLETED: 'success',
+    JUDGING: 'processing',
+    FAILED: 'error',
+    UPLOADED: 'default',
+    CONVERTING: 'processing',
+    SUBMITTING: 'processing',
+  } as const
+
   return (
-    <DashboardLayout
-      title="Submission Review"
-      subtitle="Review student flowchart and provide feedback"
-    >
+    <DashboardLayout title="Submission Review" subtitle="Review student flowchart and provide feedback">
       <div className="space-y-6">
-        {/* Back button */}
-        <Link href="/review-requests">
+        <Link href="/teacher/reviews">
           <button className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
             <ChevronLeft size={20} />
-            <span>Back to Review Requests</span>
+            <span>Back to Review Queue</span>
           </button>
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Student Information */}
             <div className="bg-card border border-border rounded-lg p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Student Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Name</p>
-                  <p className="font-medium text-foreground">{mockSubmission.student}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Email</p>
-                  <p className="font-medium text-foreground">{mockSubmission.email}</p>
+                  <p className="font-medium text-foreground">{submission.studentName}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Class</p>
-                  <p className="font-medium text-foreground">{mockSubmission.class}</p>
+                  <p className="font-medium text-foreground">{submission.className}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Submission Time</p>
-                  <p className="font-medium text-foreground">{mockSubmission.submissionTime}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Module</p>
+                  <p className="font-medium text-foreground">{submission.moduleName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Problem</p>
+                  <p className="font-medium text-foreground">{submission.problemName}</p>
                 </div>
               </div>
             </div>
 
-            {/* Flowchart Section */}
             <div className="bg-card border border-border rounded-lg p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Flowchart Submission</h3>
               <div className="bg-secondary rounded-lg p-8 text-center">
                 <div className="flex flex-col items-center justify-center gap-4">
-                  <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center text-muted-foreground text-sm">
-                    [Flowchart Image Preview]
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90">
-                      Zoom In
-                    </button>
-                    <button className="px-4 py-2 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-secondary">
-                      Full Screen
-                    </button>
-                  </div>
+                  <img src={submission.flowchartUrl} alt="Flowchart" className="max-w-md w-full h-48 object-contain" />
                 </div>
               </div>
+              <button className="mt-3 px-4 py-2 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-secondary">
+                Rejudge Submission
+              </button>
             </div>
 
-            {/* Automatic Evaluation */}
             <div className="bg-card border border-border rounded-lg p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Automatic Evaluation</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Status</span>
-                  <Badge variant="success">{mockSubmission.automaticStatus}</Badge>
+                  <Badge variant={autoStatusMap[submission.automaticStatus as keyof typeof autoStatusMap] ?? 'default'}>{submission.automaticStatus}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Verdict</span>
-                  <Badge variant="success">{mockSubmission.verdict}</Badge>
+                  <Badge variant={submission.verdict === 'Correct' ? 'success' : 'warning'}>{submission.verdict}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">DOMjudge ID</span>
-                  <span className="text-foreground font-mono text-sm">{mockSubmission.domjudgeId}</span>
+                  <span className="text-foreground font-mono text-sm">{submission.domjudgeId}</span>
                 </div>
               </div>
             </div>
 
-            {/* Generated Code */}
             <div className="bg-card border border-border rounded-lg p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Generated Code</h3>
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Language</span>
-                <span className="text-foreground font-medium">{mockSubmission.language}</span>
+                <span className="text-foreground font-medium">{submission.language}</span>
               </div>
-              <pre className="bg-secondary p-4 rounded-lg overflow-x-auto text-xs text-foreground font-mono border border-border">
-                {mockSubmission.generatedCode}
-              </pre>
+              <pre className="bg-secondary p-4 rounded-lg overflow-x-auto text-xs text-foreground font-mono border border-border">{submission.generatedCode}</pre>
             </div>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
-            {/* Teacher Review */}
             <div className="bg-card border border-border rounded-lg p-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Teacher Review</h3>
-
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">Verdict</label>
                   <select
                     value={verdict}
-                    onChange={(e) => setVerdict(e.target.value)}
+                    onChange={(e) => setVerdict(e.target.value as 'CORRECT' | 'INCORRECT' | 'NEEDS_CHANGES')}
                     className="w-full px-3 py-2 border border-border rounded-lg bg-card text-foreground focus:outline-none focus:border-primary"
                   >
-                    <option value="Correct">Correct</option>
-                    <option value="Partially Correct">Partially Correct</option>
-                    <option value="Needs Improvement">Needs Improvement</option>
-                    <option value="Wrong">Wrong</option>
+                    <option value="CORRECT">Correct</option>
+                    <option value="NEEDS_CHANGES">Needs Changes</option>
+                    <option value="INCORRECT">Incorrect</option>
                   </select>
                 </div>
 
@@ -182,35 +168,29 @@ export default function SubmissionDetailPage() {
 
                 <div className="space-y-2">
                   <button
-                    onClick={handleSave}
+                    onClick={() => handleSave(false)}
                     disabled={isSaving}
                     className="w-full px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-secondary transition-colors disabled:opacity-50"
                   >
                     {isSaving ? 'Saving...' : 'Save Draft'}
                   </button>
                   <button
-                    onClick={handleSave}
+                    onClick={() => handleSave(true)}
                     disabled={isSaving}
                     className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                   >
                     {isSaving ? 'Publishing...' : 'Publish Review'}
                   </button>
                 </div>
-              </div>
-            </div>
-
-            {/* Problem Details */}
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Problem Details</h3>
-              <div className="space-y-2">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Module</p>
-                  <p className="text-sm font-medium text-foreground">{mockSubmission.module}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Problem</p>
-                  <p className="text-sm font-medium text-foreground">{mockSubmission.problem}</p>
-                </div>
+                <button
+                  onClick={async () => {
+                    const next = await rejudgeSubmission(submission.id)
+                    setSubmission(next ?? submission)
+                  }}
+                  className="w-full px-4 py-2 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-secondary transition-colors"
+                >
+                  Rejudge Submission
+                </button>
               </div>
             </div>
           </div>

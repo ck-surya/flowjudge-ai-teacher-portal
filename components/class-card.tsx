@@ -19,7 +19,7 @@ export function ClassCard({
   pendingReviews,
 }: ClassCardProps) {
   return (
-    <Link href={`/classes/${id}`}>
+    <Link href={`/teacher/classes/${id}`}>
       <div className="bg-card border border-border rounded-lg p-6 hover:shadow-md hover:border-primary transition-all cursor-pointer">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -53,9 +53,7 @@ export function ClassCard({
           </div>
         </div>
 
-        <button className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
-          Open Class
-        </button>
+        <button className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">Open Class</button>
       </div>
     </Link>
   )

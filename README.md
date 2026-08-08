@@ -1,12 +1,43 @@
 # flowjudge-ai-teacher-portal
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+This is a Next.js based teacher web feature prototype for FlowJudge.
 
-## Built with v0
+## Demo mode (backend not ready)
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+The app is now wired to a local mock service in:
+- `lib/teacherDemoService.ts`
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_kS4gkteF5dIJJuRAuGijW9uCyTVt)
+It exposes demo implementations for:
+- Authentication/session mock (`getTeacher`)
+- Class CRUD (`listClasses`, `getClass`, `createClass`, `updateClass`)
+- Modules/Problems/Submissions/Reviews/Students read and basic write operations
+- Rejudge + review save actions
+
+## Route expectation for demo
+The documented teacher routes are available as `/teacher/...` aliases:
+- `/teacher`
+- `/teacher/classes`
+- `/teacher/classes/{classId}`
+- `/teacher/classes/{classId}/modules/{moduleId}`
+- `/teacher/submissions`
+- `/teacher/submissions/{submissionId}`
+- `/teacher/reviews`
+- `/teacher/reviews/{reviewId}`
+
+Those aliases redirect to the existing implementation pages so you can walk through
+flows without a backend.
+
+## How to show the demo now
+1. Run `pnpm install` (or `npm install`)
+2. Run `pnpm dev`
+3. Open `http://localhost:3000/teacher`
+4. Walk through:
+   - Dashboard cards and class list
+   - Class details, modules, and problems
+   - Submission list and submission review page
+   - Review queue
+
+Note: since backend contracts are not available in this environment, all responses are in-memory and reset on server restart. The UI remains fully interactive for demos.
 
 ## Getting Started
 
@@ -21,13 +52,3 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Learn More
-
-To learn more, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.

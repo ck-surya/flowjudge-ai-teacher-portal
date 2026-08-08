@@ -19,7 +19,7 @@ export function ModuleCard({
   completionPercentage,
 }: ModuleCardProps) {
   return (
-    <Link href={`/classes/${classId}/modules/${id}`}>
+    <Link href={`/teacher/classes/${classId}/modules/${id}`}>
       <div className="bg-card border border-border rounded-lg p-5 hover:shadow-md hover:border-primary transition-all cursor-pointer">
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-base font-semibold text-foreground">{name}</h3>
@@ -34,10 +34,7 @@ export function ModuleCard({
         </div>
 
         <div className="w-full bg-muted rounded-full h-2">
-          <div
-            className="bg-primary h-2 rounded-full transition-all"
-            style={{ width: `${completionPercentage}%` }}
-          />
+          <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${completionPercentage}%` }} />
         </div>
       </div>
     </Link>

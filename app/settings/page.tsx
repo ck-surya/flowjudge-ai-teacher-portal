@@ -115,9 +115,6 @@ export default function SettingsPage() {
               </div>
               <select className="px-3 py-2 border border-border rounded-lg bg-card text-foreground focus:outline-none focus:border-primary">
                 <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
               </select>
             </div>
           </div>
