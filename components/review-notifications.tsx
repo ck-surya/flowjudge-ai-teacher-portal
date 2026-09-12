@@ -17,6 +17,6 @@ export function ReviewNotifications({ onNavigate }: { onNavigate: () => void }) 
       <span className="block font-medium">{review.submission?.studentName}</span>
       <span className="block text-xs text-muted-foreground">{review.submission?.problemName} · {review.reviewStatus.replaceAll('_', ' ')}</span>
     </Link>)}
-    <Link href="/teacher/reviews" onClick={onNavigate} className="block text-primary">View student review requests</Link>
+    <Link href="/review-requests" onClick={onNavigate} className="block text-primary">View student review requests</Link>
   </div>
 }

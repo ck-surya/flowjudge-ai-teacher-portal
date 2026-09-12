@@ -44,11 +44,11 @@ export default function ClassDetailsPage({ params }: { params: Promise<{ id: str
   const tabs = [
     { id: 'overview', label: 'Overview', content: <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard title="Total Students" value={stats.totalStudents} icon={Users} />
-        <StatCard title="Assigned Modules" value={stats.activeModules} icon={BookOpen} />
-        <StatCard title="Total Problems" value={modules.reduce((sum, row) => sum + row.problemCount, 0)} icon={Code2} />
-        <StatCard title="Total Submissions" value={stats.totalSubmissions} icon={FileText} />
-        <StatCard title="Pending Reviews" value={stats.pendingReviews} icon={AlertCircle} color="rose" />
+        <StatCard title="Total Students" value={stats.totalStudents} icon={Users} href={`/classes/${id}#students`} />
+        <StatCard title="Assigned Modules" value={stats.activeModules} icon={BookOpen} href={`/classes/${id}#modules`} />
+        <StatCard title="Total Problems" value={modules.reduce((sum, row) => sum + row.problemCount, 0)} icon={Code2} href={`/classes/${id}#modules`} />
+        <StatCard title="Total Submissions" value={stats.totalSubmissions} icon={FileText} href={`/submissions?classId=${id}`} />
+        <StatCard title="Pending Reviews" value={stats.pendingReviews} icon={AlertCircle} color="rose" href={`/classes/${id}#reviews`} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{modules.map(row => <ModuleCard key={row.id} {...row} />)}</div>
     </div> },
@@ -60,12 +60,12 @@ export default function ClassDetailsPage({ params }: { params: Promise<{ id: str
     { id: 'students', label: 'Students', content: <div className="overflow-x-auto">
       <table className="w-full text-left"><thead><tr className="border-b border-border">{['Student', 'Email', 'Username', 'Submissions'].map(label => <th key={label} className="p-3">{label}</th>)}</tr></thead>
         <tbody>{students.map(row => <tr key={row.id} className="border-b border-border">
-          <td className="p-3"><Link className="text-primary" href={`/students/${row.id}`}>{row.name}</Link></td><td className="p-3">{row.email}</td><td className="p-3">{row.username}</td><td className="p-3">{row.totalSubmissions}</td>
+          <td className="p-3"><Link className="text-primary" href={`/students/${row.id}`}>{row.name}</Link></td><td className="p-3">{row.email}</td><td className="p-3">{row.username}</td><td className="p-3"><Link className="text-primary" aria-label={`View submissions by ${row.name}`} href={`/submissions?classId=${id}&studentId=${row.id}`}>{row.totalSubmissions}</Link></td>
         </tr>)}{!students.length && <tr><td colSpan={4} className="p-6 text-muted-foreground">No students have joined yet.</td></tr>}</tbody>
       </table>
     </div> },
     { id: 'reviews', label: 'Review Requests', content: <div className="space-y-3">
-      {pending.map(row => <div key={row.id} className="bg-card border border-border rounded-lg p-4 flex items-center justify-between gap-4">
+      {pending.map(row => <div key={row.id} className="bg-card border border-border rounded-lg p-4 flex flex-wrap items-center justify-between gap-4">
         <div><p className="font-medium">{row.submission?.studentName}</p><p className="text-sm text-muted-foreground">{row.submission?.moduleName} · {row.submission?.problemName}</p></div>
         <Badge variant={row.reviewStatus === 'IN_REVIEW' ? 'processing' : 'warning'}>{row.reviewStatus}</Badge>
         <Link href={`/submissions/${row.submissionId}`} className="text-primary">Open</Link>
@@ -73,9 +73,9 @@ export default function ClassDetailsPage({ params }: { params: Promise<{ id: str
     </div> },
     { id: 'settings', label: 'Settings', content: <form onSubmit={saveSettings} className="bg-card border border-border rounded-lg p-6 space-y-4">
       <RequestState error={saveError} />{saved && <p role="status" className="text-green-600">Class updated.</p>}
-      <label className="block">Class name<input name="name" required minLength={2} maxLength={100} defaultValue={classRow.name} className="block w-full mt-2 p-2 border border-border rounded-lg bg-card" /></label>
+      <label className="block">Class name<input name="name" required minLength={2} maxLength={100} disabled={saving} defaultValue={classRow.name} className="block w-full mt-2 p-2 border border-border rounded-lg bg-card" /></label>
       <label className="block">Class code<input readOnly value={classRow.code} className="block w-full mt-2 p-2 border border-border rounded-lg bg-muted" /></label>
-      <label className="flex gap-2"><input name="isActive" type="checkbox" defaultChecked={classRow.isActive} />Class is active</label>
+      <label className="flex gap-2"><input name="isActive" type="checkbox" disabled={saving} defaultChecked={classRow.isActive} />Class is active</label>
       <button disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50">{saving ? 'Saving…' : 'Save Changes'}</button>
     </form> },
   ]

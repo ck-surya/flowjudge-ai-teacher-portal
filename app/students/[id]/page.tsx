@@ -45,7 +45,7 @@ export default function StudentProfilePage({ params }: StudentPageProps) {
         <div className="flex justify-between gap-4"><Link className="text-primary" href="/classes">Back to Classes</Link><button onClick={retry} disabled={loading} className="px-3 py-2 border border-border rounded-lg disabled:opacity-50">Refresh student</button></div>
         <RequestState error={error} onRetry={retry} />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard title="Total Submissions" value={summary.submissionCount} icon={Code2} />
+          <StatCard title="Total Submissions" value={summary.submissionCount} icon={Code2} href={`/submissions?studentId=${id}`} />
           <StatCard title="Correct Submissions" value={summary.correctCount} icon={Target} />
           <StatCard title="Automatic Accuracy" value={summary.completedCount ? `${summary.accuracy}%` : '—'} icon={User} color="green" />
         </div>
@@ -59,7 +59,7 @@ export default function StudentProfilePage({ params }: StudentPageProps) {
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Email</p>
-              <p className="font-medium text-foreground">{student.email}</p>
+              <p className="font-medium text-foreground break-all">{student.email}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">Username</p>

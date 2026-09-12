@@ -113,13 +113,34 @@ function mapClass(row: ApiClass): ClassItem {
 export async function listClasses(): Promise<ClassItem[]> {
   return (await apiFetch<ApiClass[]>('/teachers/classes')).map(mapClass)
 }
+export async function listClassesWithPendingReviews(): Promise<ClassItem[]> {
+  const classes = await listClasses()
+  if (classes.every(row => row.pendingReviews !== null)) return classes
+  // Older deployments omit the aggregate. Count pending requests once across
+  // all classes rather than issuing a dashboard request for every card.
+  let queues: Review[][]
+  try {
+    queues = await Promise.all([listReviews({ status: 'REQUESTED' }), listReviews({ status: 'IN_REVIEW' })])
+  } catch (reason) {
+    if (reason instanceof ApiError && reason.status === 401) throw reason
+    // Keep class management usable; the page explains unavailable counts.
+    return classes
+  }
+  const counts = new Map<string, number>()
+  for (const review of queues.flat()) {
+    const classId = review.submission?.classId
+    if (classId) counts.set(classId, (counts.get(classId) ?? 0) + 1)
+  }
+  return classes.map(row => ({ ...row, pendingReviews: row.pendingReviews ?? counts.get(row.id) ?? 0 }))
+}
 export async function getClass(id: string): Promise<ClassItem> {
   return mapClass(await apiFetch<ApiClass>(`/teachers/classes/${segment(id)}`))
 }
 export async function createClass(payload: { name: string; code: string }): Promise<ClassItem> {
-  return mapClass(await apiFetch<ApiClass>('/teachers/classes', {
+  const row = await apiFetch<ApiClass>('/teachers/classes', {
     method: 'POST', body: JSON.stringify({ name: payload.name.trim(), code: payload.code.trim() }),
-  }))
+  })
+  return mapClass({ ...row, pendingReviewCount: row.pendingReviewCount ?? 0 })
 }
 export async function updateClass(id: string, updates: { name?: string; isActive?: boolean }): Promise<ClassItem> {
   await apiFetch<ApiClass>(`/teachers/classes/${segment(id)}`, { method: 'PATCH', body: JSON.stringify(updates) })
@@ -207,16 +228,15 @@ async function allPages<T>(path: string, filters: Record<string, string | undefi
     query.set('cursor', page.nextCursor)
   }
 }
-export async function listSubmissions(filters: { classId?: string; moduleId?: string; problemId?: string; status?: SubmissionStatus; studentId?: string; reviewStatus?: SubmissionReviewStatus } = {}): Promise<Submission[]> {
-  const classes = filters.classId ? [await getClass(filters.classId)] : await listClasses()
-  const rows: Submission[] = []
-  for (const classroom of classes) {
-    const page = await allPages<ApiSubmission>(`/teachers/classes/${segment(classroom.id)}/submissions`, {
-      moduleId: filters.moduleId, problemId: filters.problemId, status: filters.status, studentId: filters.studentId,
-      reviewStatus: filters.reviewStatus,
-    })
-    rows.push(...page.map(row => mapSubmission(row, classroom)))
-  }
+export async function listSubmissions(filters: { classId?: string; moduleId?: string; problemId?: string; status?: SubmissionStatus | 'PROCESSING'; studentId?: string; reviewStatus?: SubmissionReviewStatus } = {}): Promise<Submission[]> {
+  const classroom = filters.classId ? await getClass(filters.classId) : undefined
+  const path = classroom ? `/teachers/classes/${segment(classroom.id)}/submissions` : '/teachers/submissions'
+  const page = await allPages<ApiSubmission>(path, {
+    moduleId: filters.moduleId, problemId: filters.problemId, status: filters.status === 'PROCESSING' ? undefined : filters.status,
+    studentId: filters.studentId, reviewStatus: filters.reviewStatus,
+  })
+  const rows = page.filter(row => filters.status !== 'PROCESSING' || ['CONVERTING', 'SUBMITTING', 'JUDGING'].includes(row.status))
+    .map(row => mapSubmission(row, classroom))
   return rows.sort((a, b) => b.submissionTime.localeCompare(a.submissionTime) || b.id.localeCompare(a.id))
 }
 export async function getSubmission(id: string): Promise<Submission> {

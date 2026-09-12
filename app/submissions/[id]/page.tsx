@@ -1,6 +1,8 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { Suspense, use, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { submissionReturnPath } from '@/lib/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Badge } from '@/components/badge'
@@ -15,8 +17,9 @@ type SubmissionPageProps = {
   params: Promise<{ id: string }>
 }
 
-export default function SubmissionDetailPage({ params }: SubmissionPageProps) {
+function SubmissionDetail({ params }: SubmissionPageProps) {
   const { id } = use(params)
+  const returnPath = submissionReturnPath(useSearchParams().get('returnTo'))
   const { data: submission, setData: setSubmission, loading, error, retry } = useRequest(() => getSubmission(id), [id])
   const [actionError, setActionError] = useState('')
   const [success, setSuccess] = useState('')
@@ -26,14 +29,17 @@ export default function SubmissionDetailPage({ params }: SubmissionPageProps) {
   const [isRejudging, setIsRejudging] = useState(false)
 
   useEffect(() => {
-    if (submission?.review?.teacherVerdict) setVerdict(submission.review.teacherVerdict)
+    setVerdict(submission?.review?.teacherVerdict ?? 'CORRECT')
     setFeedback(submission?.review?.feedback ?? '')
-    setActionError('')
-    setSuccess('')
   }, [id, submission?.review?.id, submission?.review?.teacherVerdict, submission?.review?.feedback])
 
+  useEffect(() => {
+    setActionError('')
+    setSuccess('')
+  }, [id])
+
   const handleReview = async (publish: boolean) => {
-    if (!submission) return
+    if (!submission || isSaving) return
     setIsSaving(true)
     setActionError('')
     setSuccess('')
@@ -103,7 +109,7 @@ export default function SubmissionDetailPage({ params }: SubmissionPageProps) {
     finally { setIsRejudging(false) }
   }
 
-  if (!submission) return <DashboardLayout title="Submission Review"><RequestState loading={loading} error={error} onRetry={retry} /></DashboardLayout>
+  if (!submission) return <DashboardLayout title="Submission Review"><Link href={returnPath} className="text-primary">Back to {returnPath.startsWith('/review-requests') ? 'Review Requests' : 'Submissions'}</Link><RequestState loading={loading} error={error} onRetry={retry} /></DashboardLayout>
   const readOnly = submission.reviewStatus === 'NOT_REQUESTED' || submission.reviewStatus === 'REVIEWED'
   const canRejudge = submission.automaticStatus === 'COMPLETED' || submission.automaticStatus === 'FAILED'
 
@@ -120,9 +126,9 @@ export default function SubmissionDetailPage({ params }: SubmissionPageProps) {
     <DashboardLayout title="Submission Review" subtitle="Review student flowchart and provide feedback">
       <div className="space-y-6">
         <RequestState error={error} onRetry={retry} />
-        <div className="flex flex-wrap gap-4 justify-between"><Link href="/submissions" className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
+        <div className="flex flex-wrap gap-4 justify-between"><Link href={returnPath} className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
             <ChevronLeft size={20} />
-            <span>Back to Submissions</span>
+            <span>{returnPath.startsWith('/review-requests') ? 'Back to Review Requests' : 'Back to Submissions'}</span>
         </Link><div className="flex flex-wrap gap-2">
           <button onClick={copySubmission} disabled={isSaving || isRejudging} className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg disabled:opacity-50"><Clipboard size={16} />Copy</button>
           <button onClick={exportSubmission} disabled={isSaving || isRejudging} className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg disabled:opacity-50"><Download size={16} />Export</button>
@@ -253,4 +259,8 @@ export default function SubmissionDetailPage({ params }: SubmissionPageProps) {
       </div>
     </DashboardLayout>
   )
+}
+
+export default function SubmissionDetailPage(props: SubmissionPageProps) {
+  return <Suspense fallback={<RequestState loading />}><SubmissionDetail {...props} /></Suspense>
 }

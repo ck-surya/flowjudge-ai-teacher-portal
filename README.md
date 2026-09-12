@@ -6,7 +6,9 @@ ngrok warning bypass header. The backend URL is configured on the server.
 
 ## Run locally
 
-Use Node.js 24 and install dependencies with `npm ci` (or `pnpm install`).
+Use the Node.js version in `.nvmrc` and install dependencies with `npm ci` or
+`corepack pnpm install --frozen-lockfile`. The package manager is pinned to pnpm
+12.4.1; its dependency override is configured in `pnpm-workspace.yaml`.
 
 1. Copy `.env.example` to `.env.local` and set `FLOWJUDGE_API_URL` to the backend
    base URL **including `/api`**. The example uses the current ngrok tunnel.
@@ -73,7 +75,17 @@ Sign in again after upgrading to establish the server-managed cookie session.
 - Class tabs support arrow keys and URL fragments such as `#students`, `#modules`
   and `#settings`. Back links return to the corresponding class section.
 - Theme changes stay synchronized between the header and Settings and persist
-  across reloads. Menus, navigation toggles and filters have accessible labels.
+  across reloads and browser tabs. Explicit light mode takes precedence over the
+  system theme, and the saved theme applies before the first paint.
+- Navigation goes directly to the page shown by each item. Class summary cards
+  open the corresponding tab or filtered submission list. Submission back links
+  preserve the originating list filters, search text and verdict.
+- Review and submission filters update the URL without a page navigation. The
+  processing shortcut includes conversion, submission and judging stages.
+- Teacher profile data is shared between protected pages. Review-count failures
+  leave class management available and show an explanatory notice.
+- Menus, navigation toggles and filters have accessible labels. Keyboard focus,
+  mobile sidebar visibility and reduced-motion preferences are supported.
 - Submissions, reviews and class lists include explicit refresh actions. Submission
   details can refresh evaluation status, rejudge terminal submissions, export/copy
   evaluation details and preserve the backend's review rules.
@@ -81,3 +93,6 @@ Sign in again after upgrading to establish the server-managed cookie session.
 For a public development tunnel, set `FLOWJUDGE_DEV_ORIGINS` to its hostname
 (without `https://`). Redirects use the public request origin and do not carry
 the local development port onto the tunnel URL.
+
+See [the UX review and verification record](UX-REVIEW.md) for the browser checks,
+the improvements on `feat/teacher-portal-ux-polish`, and remaining test limits.

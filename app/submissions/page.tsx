@@ -8,36 +8,29 @@ import { Search } from 'lucide-react'
 import { RequestState } from '@/components/request-state'
 import { useRequest } from '@/lib/use-request'
 import { ClassModuleFilters } from '@/components/class-module-filters'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { listSubmissions, type SubmissionReviewStatus, type SubmissionStatus } from '@/lib/teacherService'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { replaceListFilters } from '@/lib/navigation'
+import { listSubmissions, type SubmissionStatus, type SubmissionReviewStatus } from '@/lib/teacherService'
 
 function SubmissionsContent() {
   const query = useSearchParams()
-  const router = useRouter()
   const pathname = usePathname()
   const classFilter = query.get('classId') ?? ''
   const moduleFilter = query.get('moduleId') ?? ''
   const problemFilter = query.get('problemId') ?? ''
   const studentFilter = query.get('studentId') ?? ''
-  const statuses: SubmissionStatus[] = ['UPLOADED', 'CONVERTING', 'SUBMITTING', 'JUDGING', 'COMPLETED', 'FAILED']
-  const statusFilter = statuses.find(status => status === query.get('status')) ?? ''
+  const statuses: (SubmissionStatus | 'PROCESSING')[] = ['UPLOADED', 'PROCESSING', 'CONVERTING', 'SUBMITTING', 'JUDGING', 'COMPLETED', 'FAILED']
   const reviewStatuses: SubmissionReviewStatus[] = ['NOT_REQUESTED', 'REQUESTED', 'IN_REVIEW', 'REVIEWED']
-  const reviewStatusFilter = reviewStatuses.find(status => status === query.get('reviewStatus')) ?? ''
-  const updateFilters = (updates: Record<string, string>) => {
-    const next = new URLSearchParams(query.toString())
-    for (const [key, value] of Object.entries(updates)) { if (value) next.set(key, value); else next.delete(key) }
-    router.replace(`${pathname}?${next}`, { scroll: false })
-  }
-  const [searchTerm, setSearchTerm] = useState('')
-  const [verdictFilter, setVerdictFilter] = useState('all')
-  const { data, loading, error, retry } = useRequest(() => listSubmissions({
-    classId: classFilter || undefined,
-    moduleId: moduleFilter || undefined,
-    problemId: problemFilter || undefined,
-    status: statusFilter || undefined,
-    studentId: studentFilter || undefined,
-    reviewStatus: reviewStatusFilter || undefined,
-  }), [classFilter, moduleFilter, problemFilter, statusFilter, studentFilter, reviewStatusFilter])
+  const reviewFilter = reviewStatuses.find(status => status === query.get('reviewStatus')) ?? ''
+  const statusFilter = statuses.find(status => status === query.get('status')) ?? ''
+  const updateFilters = replaceListFilters
+  const [searchTerm, setSearchTerm] = useState(query.get('q') ?? '')
+  const [verdictFilter, setVerdictFilter] = useState(query.get('verdict') ?? 'all')
+  const returnQuery = new URLSearchParams(query.toString())
+  if (searchTerm) returnQuery.set('q', searchTerm); else returnQuery.delete('q')
+  if (verdictFilter !== 'all') returnQuery.set('verdict', verdictFilter); else returnQuery.delete('verdict')
+  const returnTo = encodeURIComponent(`${pathname}?${returnQuery}`)
+  const { data, loading, error, retry } = useRequest(() => listSubmissions({ classId: classFilter || undefined, moduleId: moduleFilter || undefined, status: statusFilter || undefined, studentId: studentFilter || undefined, problemId: problemFilter || undefined, reviewStatus: reviewFilter || undefined }), [classFilter, moduleFilter, statusFilter, studentFilter, problemFilter, reviewFilter])
   const rows = data ?? []
 
   const verdictColors = {
@@ -79,25 +72,29 @@ function SubmissionsContent() {
               onClassChange={classId => updateFilters({ classId, moduleId: '', problemId: '', studentId: '' })}
               onModuleChange={moduleId => updateFilters({ moduleId, problemId: '' })} />
             <label className="text-sm space-y-1">Evaluation status<select aria-label="Filter by evaluation status" value={statusFilter} onChange={e => updateFilters({ status: e.target.value })} className="block w-full px-3 py-2 border border-border rounded-lg bg-card">
-              <option value="">All statuses</option>{statuses.map(status => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}
+              <option value="">All statuses</option>{statuses.map(status => <option key={status} value={status}>{status === 'PROCESSING' ? 'Processing (all stages)' : status.charAt(0) + status.slice(1).toLowerCase()}</option>)}
             </select></label>
-            <label className="text-sm space-y-1">Review status<select aria-label="Filter by review status" value={reviewStatusFilter} onChange={e => updateFilters({ reviewStatus: e.target.value })} className="block w-full px-3 py-2 border border-border rounded-lg bg-card">
-              <option value="">All review statuses</option>{reviewStatuses.map(status => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}
-            </select></label>
-            <select
+            <label className="text-sm space-y-1">Review status
+              <select aria-label="Filter by review status" value={reviewFilter} onChange={e => updateFilters({ reviewStatus: e.target.value })} className="block w-full px-3 py-2 border border-border rounded-lg bg-card">
+                <option value="">All reviews</option>
+                <option value="NOT_REQUESTED">Not requested</option><option value="REQUESTED">Requested</option>
+                <option value="IN_REVIEW">In review</option><option value="REVIEWED">Reviewed</option>
+              </select>
+            </label>
+            <label className="text-sm space-y-1">Verdict<select
               aria-label="Filter by verdict"
               value={verdictFilter}
               onChange={(e) => setVerdictFilter(e.target.value)}
-              className="px-4 py-2 border border-border rounded-lg bg-card text-foreground focus:outline-none focus:border-primary"
+              className="block w-full px-3 py-2 border border-border rounded-lg bg-card text-foreground focus:outline-none focus:border-primary"
             >
               <option value="all">All Verdicts</option>
-              {Array.from(new Set(rows.map(row => row.verdict))).sort().map(verdict => <option key={verdict} value={verdict}>{verdict}</option>)}
-            </select>
+              {Array.from(new Set([...rows.map(row => row.verdict), ...(verdictFilter === 'all' ? [] : [verdictFilter])])).sort().map(verdict => <option key={verdict} value={verdict}>{verdict}</option>)}
+            </select></label>
           </div>
         </div>
 
         <div className="flex flex-wrap justify-between gap-3 text-sm"><p role="status">{filteredSubmissions.length} matching submissions{problemFilter ? ' for the selected problem' : ''}</p>
-          <button onClick={() => { setSearchTerm(''); setVerdictFilter('all'); router.replace(pathname, { scroll: false }) }} className="text-primary">Clear filters</button></div>
+          <button onClick={() => { setSearchTerm(''); setVerdictFilter('all'); window.history.replaceState(null, '', pathname) }} className="text-primary">Clear filters</button></div>
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -153,7 +150,7 @@ function SubmissionsContent() {
                         </td>
                         <td className="py-3 px-4 text-muted-foreground text-sm">{new Date(submission.submissionTime).toLocaleString()}</td>
                         <td className="py-3 px-4">
-                          <Link href={`/submissions/${submission.id}`} aria-label={`Open ${submission.problemName} by ${submission.studentName}`} className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90">Open</Link>
+                          <Link href={`/submissions/${submission.id}?returnTo=${returnTo}`} aria-label={`Open ${submission.problemName} by ${submission.studentName}`} className="inline-flex px-3 py-2 text-sm bg-primary text-primary-foreground rounded hover:opacity-90">Open</Link>
                         </td>
                       </tr>
                     )

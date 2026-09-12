@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next'
+import { themeInitScript } from '@/lib/theme'
+import { TeacherProvider } from '@/components/teacher-provider'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -25,7 +27,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light',
+  colorScheme: 'light dark',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
   ],
@@ -38,8 +40,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="bg-background" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: themeInitScript }} /></head>
       <body className="antialiased font-sans" suppressHydrationWarning>
-        {children}
+        <TeacherProvider>{children}</TeacherProvider>
       </body>
     </html>
   )
