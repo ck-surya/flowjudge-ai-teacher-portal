@@ -4,14 +4,14 @@ import { useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { ClassCard } from '@/components/class-card'
 import { Modal } from '@/components/modal'
-import { createClass, updateClass, listClasses, type ClassItem } from '@/lib/teacherService'
+import { createClass, updateClass, listClassesWithPendingReviews, type ClassItem } from '@/lib/teacherService'
 import { RequestState } from '@/components/request-state'
 import { useRequest } from '@/lib/use-request'
 import { errorMessage } from '@/lib/api-client'
 import { Plus, Edit2 } from 'lucide-react'
 
 export default function ClassesPage() {
-  const { data, setData, loading, error, retry } = useRequest(listClasses)
+  const { data, setData, loading, error, retry } = useRequest(listClassesWithPendingReviews)
   const classes = data ?? []
   const [modal, setModal] = useState<'create' | ClassItem | null>(null)
   const [form, setForm] = useState({ name: '', code: '', isActive: true })
@@ -33,7 +33,7 @@ export default function ClassesPage() {
     try {
       const row = modal === 'create' ? await createClass({ name: form.name, code: form.code })
         : await updateClass(modal.id, { name: form.name.trim(), isActive: form.isActive })
-      setData(current => modal === 'create' ? [...(current ?? []), row] : (current ?? []).map(item => item.id === row.id ? row : item))
+      setData(current => modal === 'create' ? [...(current ?? []), row] : (current ?? []).map(item => item.id === row.id ? { ...row, pendingReviews: row.pendingReviews ?? item.pendingReviews } : item))
       setNotice(modal === 'create' ? `${row.name} created. Share code ${row.code} with your students.` : `${row.name} updated.`)
       setModal(null)
     } catch (reason) { setFormError(errorMessage(reason)) }
@@ -49,6 +49,7 @@ export default function ClassesPage() {
         </div>
       </div>
       <RequestState loading={loading} error={error} onRetry={retry} />
+      {!loading && !error && classes.some(row => row.pendingReviews === null) && <p role="status" className="text-sm text-muted-foreground">Pending review counts could not be loaded. Refresh classes to retry.</p>}
       {notice && <p role="status" className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm">{notice}</p>}
       {!loading && !error && !classes.length && <div className="py-12 text-center border border-dashed border-border rounded-lg"><p>No classes yet. Create your first class to get started.</p></div>}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

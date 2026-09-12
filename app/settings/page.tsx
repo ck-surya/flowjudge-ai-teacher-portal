@@ -3,13 +3,13 @@
 import { useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { RequestState } from '@/components/request-state'
-import { getTeacher, logoutTeacher } from '@/lib/teacherService'
-import { useRequest } from '@/lib/use-request'
+import { logoutTeacher } from '@/lib/teacherService'
+import { useTeacher } from '@/components/teacher-provider'
 import { useTheme } from '@/lib/use-theme'
 import { errorMessage } from '@/lib/api-client'
 
 export default function SettingsPage() {
-  const { data: teacher, loading, error, retry } = useRequest(getTeacher)
+  const { data: teacher, loading, error, retry } = useTeacher()
   const { theme, changeTheme } = useTheme()
   const [logoutError, setLogoutError] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)

@@ -377,3 +377,73 @@ test('review detail preserves immutable history and assigned teacher', async () 
   const row = (await service.getSubmission('sub-1')).review
   assert.deepEqual(row.events, events); assert.equal(row.teacherName, 'Anita'); assert.equal(row.startedAt, events[0].createdAt)
 })
+
+test('processing shortcut filters all pipeline stages across pages without sending an invalid backend status', async () => {
+  mock(url => {
+    const query = new URL(url, 'http://portal.test').searchParams
+    assert.equal(query.has('status'), false)
+    assert.equal(query.get('problemId'), 'problem-1')
+    assert.equal(query.get('reviewStatus'), 'NOT_REQUESTED')
+    return respond(query.has('cursor')
+      ? { items: [{ ...submission, id: 'judging', status: 'JUDGING' }, { ...submission, id: 'done', status: 'COMPLETED' }], nextCursor: null }
+      : { items: [{ ...submission, id: 'converting', status: 'CONVERTING' }, { ...submission, id: 'submitting', status: 'SUBMITTING' }, { ...submission, id: 'uploaded', status: 'UPLOADED' }], nextCursor: 'page-2' })
+  })
+  const rows = await service.listSubmissions({ status: 'PROCESSING', problemId: 'problem-1', reviewStatus: 'NOT_REQUESTED' })
+  assert.deepEqual(rows.map(row => row.id).sort(), ['converting', 'judging', 'submitting'])
+  assert(calls.every(call => call.url.startsWith('/api/backend/teachers/submissions?')))
+})
+
+test('class selectors load independently of review queue availability', async () => {
+  mock(url => url.endsWith('/classes') ? respond([classroom]) : Response.json({ error: { message: 'Reviews unavailable' } }, { status: 503 }))
+  assert.equal((await service.listClasses())[0].name, classroom.name)
+  assert.equal(calls.length, 1)
+  const cards = await service.listClassesWithPendingReviews()
+  assert.equal(cards[0].name, classroom.name)
+  assert.equal(cards[0].pendingReviews, null)
+})
+
+test('class card pending counts follow review pages and preserve backend aggregates including zero', async () => {
+  mock(url => {
+    if (url.endsWith('/classes')) return respond([classroom, { ...classroom, id: 'class-2', pendingReviewCount: 0 }])
+    const query = new URL(url, 'http://portal.test').searchParams
+    return respond({ items: [{ ...review, id: query.get('status') + (query.get('cursor') ?? ''), status: query.get('status'), submission: { ...submission, review: undefined } }], nextCursor: query.has('cursor') ? null : 'page-2' })
+  })
+  assert.deepEqual((await service.listClassesWithPendingReviews()).map(row => row.pendingReviews), [4, 0])
+  assert.equal(calls.length, 5)
+})
+
+test('theme startup respects explicit light over a dark system and tolerates blocked storage', () => {
+  const vm = require('node:vm')
+  const { themeInitScript } = load('lib/theme.ts')
+  for (const [saved, darkSystem, expected] of [['light', true, 'light'], ['dark', false, 'dark'], [null, true, 'dark'], ['invalid', false, 'light'], ['blocked', false, 'light']]) {
+    const classes = new Set(['bg-background'])
+    vm.runInNewContext(themeInitScript, {
+      localStorage: { getItem() { if (saved === 'blocked') throw new Error('Storage disabled'); return saved } },
+      window: { matchMedia: () => ({ matches: darkSystem }) },
+      document: { documentElement: { classList: { toggle(name, active) { active ? classes.add(name) : classes.delete(name) } } } },
+    })
+    assert(classes.has(expected)); assert(!classes.has(expected === 'light' ? 'dark' : 'light'))
+    assert(classes.has('bg-background'))
+  }
+})
+
+test('submission back links preserve list filters and reject external destinations', () => {
+  const { submissionReturnPath } = load('lib/navigation.ts')
+  assert.equal(submissionReturnPath('/submissions?classId=c1&q=Demo'), '/submissions?classId=c1&q=Demo')
+  assert.equal(submissionReturnPath('/review-requests?status=REQUESTED'), '/review-requests?status=REQUESTED')
+  for (const unsafe of ['https://other.test/submissions', '//other.test/submissions', '/login', '/submissions/one', 'javascript:alert(1)', null]) {
+    assert.equal(submissionReturnPath(unsafe), '/submissions')
+  }
+})
+
+test('rapid filter changes build on the latest URL without discarding previous selections', () => {
+  const { replaceListFilters } = load('lib/navigation.ts')
+  window.location.pathname = '/submissions'
+  window.location.search = '?problemId=p1'
+  window.history = { replaceState(_state, _title, href) { window.location.search = new URL(href, 'https://portal.local').search } }
+  replaceListFilters({ status: 'COMPLETED' })
+  replaceListFilters({ reviewStatus: 'REVIEWED' })
+  assert.equal(window.location.search, '?problemId=p1&status=COMPLETED&reviewStatus=REVIEWED')
+  replaceListFilters({ problemId: '', status: '' })
+  assert.equal(window.location.search, '?reviewStatus=REVIEWED')
+})

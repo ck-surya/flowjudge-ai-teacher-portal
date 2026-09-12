@@ -49,7 +49,7 @@ export function Header({ title, subtitle, teacher }: HeaderProps) {
           </div>
         </div>
         <div className="flex items-center gap-1 md:gap-4 shrink-0">
-          <button aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} onClick={toggleTheme} className="p-2 text-foreground hover:bg-secondary rounded-lg transition-colors">
+          <button type="button" aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} onClick={toggleTheme} className="p-2.5 text-foreground hover:bg-secondary rounded-lg transition-colors">
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
           
@@ -59,7 +59,7 @@ export function Header({ title, subtitle, teacher }: HeaderProps) {
 
             </button>
             {showNotifs && (
-              <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-xl py-2 z-50">
+              <div className="absolute -right-10 sm:right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-lg shadow-xl py-2 z-50">
                 <div className="px-4 py-2 border-b border-border flex justify-between items-center">
                   <h3 className="font-semibold text-foreground">Review Requests</h3>
 

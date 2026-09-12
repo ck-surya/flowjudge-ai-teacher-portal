@@ -21,7 +21,7 @@ export function ClassCard({
   pendingReviews,
 }: ClassCardProps) {
   return (
-    <Link href={`/teacher/classes/${id}`}>
+    <Link href={`/classes/${id}`} className="block h-full">
       <div className="bg-card border border-border rounded-lg p-6 hover:shadow-md hover:border-primary transition-all cursor-pointer">
         <div className="flex items-start justify-between mb-4">
           <div>

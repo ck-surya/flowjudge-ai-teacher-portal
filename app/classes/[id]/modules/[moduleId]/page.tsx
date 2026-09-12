@@ -20,7 +20,7 @@ export default function ModuleDetailsPage({ params }: { params: Promise<{ id: st
       <div className="flex justify-between gap-4"><Link className="text-primary" href={`/classes/${id}#modules`}>Back to Class</Link><button onClick={retry} disabled={loading} className="px-3 py-2 border border-border rounded-lg disabled:opacity-50">Refresh module</button></div>
       {data.module ? <>
         <div className="p-6 bg-card border border-border rounded-lg space-y-2">
-          <p>{data.problems.length} assigned problems · {data.module.isActive ? 'Active' : 'Inactive'}</p>
+          <p>{data.problems.length} assigned {data.problems.length === 1 ? 'problem' : 'problems'} · {data.module.isActive ? 'Active' : 'Inactive'}</p>
           <h3 className="font-semibold pt-4">Problems</h3>
           <div className="space-y-3">{data.problems.map(problem => <div key={problem.id} className="flex flex-wrap justify-between items-center gap-3 p-4 border border-border rounded-lg">
             <div className="flex-1 min-w-0"><Link href={`/problems/${problem.id}?classId=${id}`} className="font-medium text-primary">{problem.title}</Link>

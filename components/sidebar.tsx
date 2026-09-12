@@ -7,9 +7,9 @@ import { LayoutDashboard, BookOpen, FileText, CheckCircle, Menu, X, User } from 
 
 const navItems = [
   { href: '/teacher', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/teacher/classes', label: 'Classes', icon: BookOpen },
-  { href: '/teacher/submissions', label: 'Submissions', icon: FileText },
-  { href: '/teacher/reviews', label: 'Review Requests', icon: CheckCircle },
+  { href: '/classes', label: 'Classes', icon: BookOpen },
+  { href: '/submissions', label: 'Submissions', icon: FileText },
+  { href: '/review-requests', label: 'Review Requests', icon: CheckCircle },
 ]
 
 interface SidebarProps {
@@ -25,8 +25,8 @@ export function Sidebar({ teacherName, isCollapsed = false, toggleSidebar }: Sid
   useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setIsOpen(false) }; window.addEventListener('keydown', close); return () => window.removeEventListener('keydown', close) }, [])
 
   const isActive = (href: string) => {
-    if (href === '/teacher') return pathname === '/teacher' || pathname === '/'
-    return pathname.startsWith(href) || pathname.startsWith(href === '/teacher/reviews' ? '/review-requests' : href.replace('/teacher', ''))
+    if (href === '/teacher') return pathname === '/teacher'
+    return pathname === href || pathname.startsWith(`${href}/`)
   }
 
   return (
@@ -34,6 +34,7 @@ export function Sidebar({ teacherName, isCollapsed = false, toggleSidebar }: Sid
       <button
         aria-label={isOpen ? 'Close navigation' : 'Open navigation'}
         aria-expanded={isOpen}
+        aria-controls="teacher-sidebar"
         onClick={() => setIsOpen(!isOpen)}
         className="fixed top-4 left-4 z-40 md:hidden p-2 text-foreground"
       >
@@ -43,8 +44,9 @@ export function Sidebar({ teacherName, isCollapsed = false, toggleSidebar }: Sid
       {isOpen && <div className="fixed inset-0 bg-black/20 z-20 md:hidden" onClick={() => setIsOpen(false)} />}
 
       <aside
-        className={`fixed left-0 top-0 h-screen bg-card border-r border-border transition-all duration-300 z-30 flex flex-col md:relative md:z-0 md:translate-x-0 ${
-          isOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'
+        id="teacher-sidebar"
+        className={`fixed left-0 top-0 h-dvh bg-card border-r border-border transition-all duration-300 z-30 flex flex-col md:relative md:z-0 md:translate-x-0 ${
+          isOpen ? 'visible translate-x-0 w-64' : 'invisible md:visible -translate-x-full md:translate-x-0'
         } ${isCollapsed ? 'md:w-20' : 'md:w-64'}`}
       >
         <div className={`p-6 border-b border-border flex items-center h-[89px] ${isCollapsed ? 'justify-center px-0' : ''}`}>
@@ -62,7 +64,7 @@ export function Sidebar({ teacherName, isCollapsed = false, toggleSidebar }: Sid
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-x-hidden">
+        <nav aria-label="Teacher navigation" className="flex-1 px-4 py-6 space-y-2 overflow-x-hidden">
           {navItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
@@ -72,6 +74,7 @@ export function Sidebar({ teacherName, isCollapsed = false, toggleSidebar }: Sid
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 title={item.label}
+                aria-label={item.label}
                 onClick={() => setIsOpen(false)}
                 className={`flex items-center gap-3 py-3 rounded-lg text-sm font-medium transition-colors ${
                   active ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-secondary'
@@ -85,7 +88,7 @@ export function Sidebar({ teacherName, isCollapsed = false, toggleSidebar }: Sid
         </nav>
 
         <div className="p-4 border-t border-border">
-          <Link href="/settings" aria-label="Account settings" className="block">
+          <Link href="/settings" aria-label="Account settings" onClick={() => setIsOpen(false)} className="block">
             <div className={`py-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-all flex items-center cursor-pointer ${isCollapsed ? 'px-2 justify-center' : 'px-4'}`}>
               {isCollapsed ? (
                 <User size={20} className="text-foreground shrink-0" />

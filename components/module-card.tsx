@@ -19,7 +19,7 @@ export function ModuleCard({
   completionPercentage,
 }: ModuleCardProps) {
   return (
-    <Link href={`/teacher/classes/${classId}/modules/${id}`}>
+    <Link href={`/classes/${classId}/modules/${id}`} className="block h-full">
       <div className="bg-card border border-border rounded-lg p-5 hover:shadow-md hover:border-primary transition-all cursor-pointer">
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-base font-semibold text-foreground">{name}</h3>
@@ -29,8 +29,8 @@ export function ModuleCard({
         <p className="text-sm text-muted-foreground mb-4">{description}</p>
 
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-muted-foreground">{problemCount} problems</span>
-          <span className="text-xs font-medium text-foreground">{completionPercentage === null ? 'Progress unavailable' : `${completionPercentage}%`}</span>
+          <span className="text-xs text-muted-foreground">{problemCount} {problemCount === 1 ? 'problem' : 'problems'}</span>
+          {completionPercentage !== null && <span className="text-xs font-medium text-foreground">{completionPercentage}%</span>}
         </div>
 
         {completionPercentage !== null && <div className="w-full bg-muted rounded-full h-2">
