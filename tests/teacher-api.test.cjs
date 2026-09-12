@@ -148,6 +148,17 @@ test('submission detail maps all verdict codes, missing reviews, and failure sta
   const row = await service.getSubmission('sub-1')
   assert.equal(row.reviewStatus, 'NOT_REQUESTED'); assert.equal(row.verdict, 'Failed'); assert.equal(row.errorMessage, 'Conversion failed')
 })
+test('rejudge calls the teacher endpoint and maps the refreshed submission', async () => {
+  mock((url, options) => {
+    assert.equal(url, '/api/backend/teachers/submissions/sub-1/rejudge')
+    assert.equal(options.method, 'POST')
+    return respond({ ...submission, status: 'JUDGING', automaticVerdict: null, domjudgeSubmissionId: '501' })
+  })
+  const row = await service.rejudgeSubmission('sub-1')
+  assert.equal(row.automaticStatus, 'JUDGING')
+  assert.equal(row.verdict, 'Processing')
+  assert.equal(row.domjudgeId, '501')
+})
 test('review queue uses nested submission IDs, membership names, real dates and cursor', async () => {
   mock(url => respond({ items: [{ ...review, submissionId: undefined, teacherId: undefined, teacher: { id: 'teacher-1' }, submission: { ...submission, student: undefined, classroom: undefined, review: undefined, studentClass: { student: submission.student, classroom } } }], nextCursor: url.includes('cursor=') ? null : 'review-1' }))
   const rows = await service.listReviews({ status: 'IN_REVIEW', classId: 'class-1' })
@@ -346,17 +357,18 @@ test('module catalogs preserve unattempted and inactive problems', async () => {
   assert.deepEqual(await service.listModuleProblems('class-1', 'module-1'), catalog)
   assert.equal(calls[0].url, '/api/backend/teachers/classes/class-1/modules/module-1/problems')
 })
-test('problem details and PDFs use teacher endpoints instead of external statement URLs', async () => {
+test('problem details and statements use teacher endpoints instead of external statement URLs', async () => {
   const problem = { id: 'p1', title: 'Hello', statementPdfUrl: 'https://old-tunnel.test/statement', module: { id: 'm1', name: 'Conditions' } }
   mock(url => url.endsWith('/statement') ? new Response('%PDF-1.7', { headers: { 'Content-Type': 'application/pdf; name="hello.pdf"' } }) : respond(problem))
   assert.deepEqual(await service.getProblem('p1'), problem)
   const pdf = await service.getProblemStatement('p1')
   assert.equal(pdf.type, 'application/pdf'); assert.equal(await pdf.text(), '%PDF-1.7')
   assert.deepEqual(calls.map(call => call.url), ['/api/backend/teachers/problems/p1', '/api/backend/teachers/problems/p1/statement'])
-  for (const type of ['application/json', 'text/html']) {
-    mock(() => new Response('not a PDF', { headers: { 'Content-Type': type } }))
-    await assert.rejects(service.getProblemStatement('p1'), /PDF is unavailable/)
-  }
+  mock(() => new Response('<h1>Hello</h1>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }))
+  const html = await service.getProblemStatement('p1')
+  assert.equal(html.type, 'text/html'); assert.equal(await html.text(), '<h1>Hello</h1>')
+  mock(() => new Response('not a statement', { headers: { 'Content-Type': 'application/json' } }))
+  await assert.rejects(service.getProblemStatement('p1'), /problem statement is unavailable/)
 })
 test('student detail preserves all visible memberships, server metrics and submission identity', async () => {
   const student = { ...submission.student, email: 'student@example.test' }
