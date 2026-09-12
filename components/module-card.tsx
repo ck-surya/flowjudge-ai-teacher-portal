@@ -7,7 +7,7 @@ interface ModuleCardProps {
   name: string
   description: string
   problemCount: number
-  completionPercentage: number
+  completionPercentage: number | null
 }
 
 export function ModuleCard({
@@ -30,12 +30,12 @@ export function ModuleCard({
 
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs text-muted-foreground">{problemCount} problems</span>
-          <span className="text-xs font-medium text-foreground">{completionPercentage}%</span>
+          <span className="text-xs font-medium text-foreground">{completionPercentage === null ? 'Progress unavailable' : `${completionPercentage}%`}</span>
         </div>
 
-        <div className="w-full bg-muted rounded-full h-2">
+        {completionPercentage !== null && <div className="w-full bg-muted rounded-full h-2">
           <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${completionPercentage}%` }} />
-        </div>
+        </div>}
       </div>
     </Link>
   )

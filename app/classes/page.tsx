@@ -1,152 +1,81 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { ClassCard } from '@/components/class-card'
+import { Modal } from '@/components/modal'
 import { createClass, updateClass, listClasses, type ClassItem } from '@/lib/teacherService'
-import { Plus, Edit2, Archive } from 'lucide-react'
+import { RequestState } from '@/components/request-state'
+import { useRequest } from '@/lib/use-request'
+import { errorMessage } from '@/lib/api-client'
+import { Plus, Edit2 } from 'lucide-react'
 
 export default function ClassesPage() {
-  const [classes, setClasses] = useState<ClassItem[]>([])
-  
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null)
-  const [formData, setFormData] = useState({ name: '', code: '', isActive: true })
-  
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  useEffect(() => {
-    let mounted = true
-    const load = async () => {
-      const rows = await listClasses()
-      if (mounted) setClasses(rows)
-    }
-    load()
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
+  const { data, setData, loading, error, retry } = useRequest(listClasses)
+  const classes = data ?? []
+  const [modal, setModal] = useState<'create' | ClassItem | null>(null)
+  const [form, setForm] = useState({ name: '', code: '', isActive: true })
+  const [formError, setFormError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [saving, setSaving] = useState(false)
+  const open = (item: 'create' | ClassItem) => {
+    setModal(item)
+    setForm(item === 'create' ? { name: '', code: '', isActive: true } : { name: item.name, code: item.code, isActive: item.isActive })
+    setFormError('')
+    setNotice('')
+  }
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!modal || saving) return
+    if (form.name.trim().length < 2) { setFormError('Class name must contain at least two characters.'); return }
+    setSaving(true)
+    setFormError('')
     try {
-      const created = await createClass({ name: formData.name, code: formData.code })
-      setClasses([...classes, created])
-      setShowCreateModal(false)
-      setFormData({ name: '', code: '', isActive: true })
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setIsSubmitting(false)
-    }
+      const row = modal === 'create' ? await createClass({ name: form.name, code: form.code })
+        : await updateClass(modal.id, { name: form.name.trim(), isActive: form.isActive })
+      setData(current => modal === 'create' ? [...(current ?? []), row] : (current ?? []).map(item => item.id === row.id ? row : item))
+      setNotice(modal === 'create' ? `${row.name} created. Share code ${row.code} with your students.` : `${row.name} updated.`)
+      setModal(null)
+    } catch (reason) { setFormError(errorMessage(reason)) }
+    finally { setSaving(false) }
   }
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedClass) return
-    setIsSubmitting(true)
-    try {
-      const updated = await updateClass(selectedClass.id, { name: formData.name, isActive: formData.isActive })
-      if (updated) {
-        setClasses(classes.map(c => c.id === updated.id ? updated : c))
-      }
-      setShowEditModal(false)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const openEdit = (cls: ClassItem) => {
-    setSelectedClass(cls)
-    setFormData({ name: cls.name, code: cls.code, isActive: cls.isActive })
-    setShowEditModal(true)
-  }
-
-  return (
-    <DashboardLayout title="Classes" subtitle="Manage your programming classes">
-      <div className="space-y-4 relative">
-        <div className="flex justify-between items-center">
-          <p className="text-sm text-muted-foreground">You have {classes.length} total classes.</p>
-          <button
-            onClick={() => {
-              setFormData({ name: '', code: '', isActive: true })
-              setShowCreateModal(true)
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            <Plus size={16} />
-            Create Class
-          </button>
+  return <DashboardLayout title="Classes" subtitle="Manage your programming classes">
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-3 justify-between items-center">
+        <p className="text-sm text-muted-foreground">{loading ? 'Loading classes…' : `${classes.length} total classes`}</p>
+        <div className="flex gap-2">
+          <button onClick={retry} disabled={loading} className="px-3 py-2 border border-border rounded-lg disabled:opacity-50">Refresh classes</button>
+          <button onClick={() => open('create')} disabled={loading || !!error} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50"><Plus size={16} />Create Class</button>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {classes.map((classItem) => (
-            <div key={classItem.id} className="relative group">
-              <ClassCard {...classItem} />
-              <button 
-                onClick={() => openEdit(classItem)}
-                className="absolute top-4 right-4 p-2 bg-background/80 backdrop-blur text-foreground rounded-md shadow opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Edit2 size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* Create Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-6">
-              <h3 className="text-xl font-bold text-foreground mb-4">Create New Class</h3>
-              <form onSubmit={handleCreateSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Class Name</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary" placeholder="e.g. Intro to Python" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Class Code</label>
-                  <input required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary" placeholder="e.g. CS101" />
-                </div>
-                <div className="flex justify-end gap-3 mt-6">
-                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary rounded-lg">Cancel</button>
-                  <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50">Create</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Edit Modal */}
-        {showEditModal && selectedClass && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-6">
-              <h3 className="text-xl font-bold text-foreground mb-4">Edit Class</h3>
-              <form onSubmit={handleEditSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Class Name</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Class Code (Immutable)</label>
-                  <input disabled value={formData.code} className="w-full px-3 py-2 border border-border rounded-lg bg-secondary text-muted-foreground opacity-50 cursor-not-allowed" />
-                </div>
-                <div className="flex items-center gap-2 mt-4">
-                  <input type="checkbox" id="isActive" checked={formData.isActive} onChange={e => setFormData({...formData, isActive: e.target.checked})} className="rounded text-primary focus:ring-primary bg-background border-border" />
-                  <label htmlFor="isActive" className="text-sm font-medium text-foreground">Class is Active</label>
-                </div>
-                <div className="flex justify-end gap-3 mt-6">
-                  <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary rounded-lg">Cancel</button>
-                  <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50">Save Changes</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
-    </DashboardLayout>
-  )
+      <RequestState loading={loading} error={error} onRetry={retry} />
+      {notice && <p role="status" className="rounded-lg border border-green-600/30 bg-green-600/10 p-3 text-sm">{notice}</p>}
+      {!loading && !error && !classes.length && <div className="py-12 text-center border border-dashed border-border rounded-lg"><p>No classes yet. Create your first class to get started.</p></div>}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {classes.map(item => <div key={item.id} className="space-y-2">
+          <ClassCard {...item} />
+          <button aria-label={`Edit ${item.name}`} onClick={() => open(item)} className="flex items-center gap-2 px-3 py-2 text-sm text-primary border border-border rounded-lg hover:bg-secondary"><Edit2 size={16} />Edit Class</button>
+        </div>)}
+      </div>
+      {modal && <Modal title={modal === 'create' ? 'Create New Class' : 'Edit Class'} busy={saving} onClose={() => setModal(null)}>
+        <form onSubmit={submit} className="space-y-4">
+          <RequestState error={formError} />
+          <fieldset disabled={saving} className="space-y-4">
+            <label className="block text-sm font-medium">Class Name
+              <input autoFocus required minLength={2} maxLength={100} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="block w-full px-3 py-2 mt-1 border border-border rounded-lg bg-background" placeholder="e.g. Intro to Python" />
+            </label>
+            <label className="block text-sm font-medium">Class Code
+              <input required readOnly={modal !== 'create'} minLength={4} maxLength={30} pattern="[A-Z0-9-]{4,30}" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} className="block w-full px-3 py-2 mt-1 border border-border rounded-lg bg-background read-only:bg-muted" placeholder="e.g. FLOW-WEEKEND" />
+            </label>
+            <p className="text-xs text-muted-foreground">{modal === 'create' ? 'Use 4–30 letters, numbers or hyphens. Students join using this code.' : 'The class code cannot be changed.'}</p>
+            {modal !== 'create' && <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} />Class is active</label>}
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setModal(null)} className="px-4 py-2 hover:bg-secondary rounded-lg">Cancel</button>
+              <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50">{saving ? 'Saving…' : modal === 'create' ? 'Create' : 'Save Changes'}</button>
+            </div>
+          </fieldset>
+        </form>
+      </Modal>}
+    </div>
+  </DashboardLayout>
 }

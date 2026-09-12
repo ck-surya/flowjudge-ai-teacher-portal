@@ -1,28 +1,38 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { errorMessage } from '@/lib/api-client'
 import { loginTeacher } from '@/lib/teacherService'
 
 export default function LoginPage() {
-  const router = useRouter()
+  const [remember, setRemember] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search)
+    if (query.get('error') === 'session') setError('Your session has expired or ended. Please sign in again.')
+    if (query.get('error') === 'credentials') setError('The email or password is incorrect.')
+    if (query.get('error') === 'unavailable') setError('Sign-in is unavailable. Please try again.')
+    // Clean up URLs left by a previous form submission or a failed page load.
+    if (query.has('email') || query.has('password')) window.history.replaceState(null, '', '/login')
+  }, [])
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
     try {
-      await loginTeacher(email, password)
-      router.push('/teacher')
-    } catch (err: any) {
-      setError('Invalid email or password. Please try again.')
+      await loginTeacher(email, password, remember)
+      // Start a fresh navigation so pre-login route prefetches are not reused.
+      window.location.assign('/teacher')
+    } catch (err) {
+      setError(errorMessage(err))
     } finally {
       setIsLoading(false)
     }
@@ -54,9 +64,9 @@ export default function LoginPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-card py-8 px-4 shadow-xl border border-border sm:rounded-2xl sm:px-10">
-          <form className="space-y-6" onSubmit={handleLogin}>
+          <form action="/api/auth/login" method="post" className="space-y-6" onSubmit={handleLogin}>
             {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+              <div role="alert" className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
                 <p className="text-sm text-destructive">{error}</p>
               </div>
@@ -91,6 +101,8 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
+                  minLength={8}
+                  maxLength={72}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-border rounded-lg shadow-sm bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-primary focus:border-primary sm:text-sm pr-10"
@@ -98,6 +110,8 @@ export default function LoginPage() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -106,11 +120,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3">
               <div className="flex items-center">
                 <input
                   id="remember-me"
                   name="remember-me"
+                  checked={remember}
+                  onChange={e => setRemember(e.target.checked)}
                   type="checkbox"
                   className="h-4 w-4 text-primary focus:ring-primary border-border rounded bg-background"
                 />
@@ -119,9 +135,7 @@ export default function LoginPage() {
                 </label>
               </div>
               <div className="text-sm">
-                <a href="#" className="font-medium text-primary hover:text-primary/80">
-                  Forgot your password?
-                </a>
+                <span className="text-muted-foreground">Contact your administrator for password help.</span>
               </div>
             </div>
 
@@ -131,7 +145,7 @@ export default function LoginPage() {
                 disabled={isLoading}
                 className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Sign in'}
+                {isLoading ? <span className="flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Signing in…</span> : 'Sign in'}
               </button>
             </div>
           </form>

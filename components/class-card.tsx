@@ -5,15 +5,17 @@ interface ClassCardProps {
   id: string
   name: string
   code: string
+  isActive: boolean
   students: number
   modules: number
-  pendingReviews: number
+  pendingReviews: number | null
 }
 
 export function ClassCard({
   id,
   name,
   code,
+  isActive,
   students,
   modules,
   pendingReviews,
@@ -24,7 +26,7 @@ export function ClassCard({
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-foreground">{name}</h3>
-            <p className="text-sm text-muted-foreground">Code: {code}</p>
+            <p className="text-sm text-muted-foreground">Code: {code} · {isActive ? 'Active' : 'Inactive'}</p>
           </div>
           <ChevronRight className="text-muted-foreground" size={20} />
         </div>
@@ -48,12 +50,12 @@ export function ClassCard({
             <AlertCircle size={16} className="text-amber-600" />
             <div>
               <p className="text-xs text-muted-foreground">Pending</p>
-              <p className="font-semibold text-foreground">{pendingReviews}</p>
+              <p className="font-semibold text-foreground">{pendingReviews ?? '—'}</p>
             </div>
           </div>
         </div>
 
-        <button className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">Open Class</button>
+        <span className="block text-center w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">Open Class</span>
       </div>
     </Link>
   )

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRight, LayoutDashboard, Brain, Zap, Users } from 'lucide-react'
+import { ArrowRight, LayoutDashboard, Brain, Zap } from 'lucide-react'
 
 export default function LandingPage() {
   return (
@@ -9,7 +9,7 @@ export default function LandingPage() {
       {/* Navbar */}
       <nav className="fixed w-full top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 group cursor-pointer">
+          <div className="flex items-center gap-2 group">
             <img src="/logo.png" alt="FlowJudge Logo" className="w-10 h-10 object-contain group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300" />
             <span className="font-bold text-xl tracking-tight text-foreground">FlowJudge</span>
           </div>

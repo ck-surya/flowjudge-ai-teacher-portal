@@ -6,5 +6,5 @@ type TeacherModulesProps = {
 
 export default async function TeacherModulesRedirect({ params }: TeacherModulesProps) {
   const { classId } = await params
-  redirect(`/classes/${classId}`)
+  redirect(`/classes/${classId}#modules`)
 }
