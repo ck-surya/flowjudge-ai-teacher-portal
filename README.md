@@ -28,9 +28,11 @@ when that happens. `.env.local` is ignored by Git.
 - Class listing, creation, renaming, activation, assigned modules and students.
 - Submission history across owned classes, with cursor pagination, search,
   class/verdict filters, generated code, failure messages and authenticated files.
+- Submission details support safe rejudge for terminal submissions and copy/export
+  of the current evaluation details.
 - Review queue with requested, in-progress and completed states. Starting a review
   claims it; publishing sends the verdict and feedback. Completed reviews are read-only.
-- Assigned module problem catalogs, problem details and authenticated PDF preview/download.
+- Assigned module problem catalogs, problem details and authenticated problem statement preview/download.
 - Student profiles, all teacher-visible class memberships, submission history and server-provided accuracy.
 - Review history, assigned reviewer details, class/module queue filters and live pending-review notifications.
 
@@ -39,8 +41,8 @@ to the corresponding submission ID before opening the review screen.
 
 ## API limits
 
-The live API has no teacher endpoints for module/problem creation, rejudging,
-review drafts, profile/password updates or notification preferences. Those operations do not claim to save changes. Assigned modules, problems, PDF statements and module submissions remain accessible. Progress metrics absent from the API are
+The live API has no teacher endpoints for module/problem creation,
+review drafts, profile/password updates or notification preferences. Those operations do not claim to save changes. Assigned modules, problems, statement files and module submissions remain accessible. Progress metrics absent from the API are
 shown as unavailable; dashboard module totals count assignments, not active modules.
 
 Flowchart downloads require the backend response interceptor to pass NestJS
@@ -73,7 +75,8 @@ Sign in again after upgrading to establish the server-managed cookie session.
 - Theme changes stay synchronized between the header and Settings and persist
   across reloads. Menus, navigation toggles and filters have accessible labels.
 - Submissions, reviews and class lists include explicit refresh actions. Submission
-  details can refresh evaluation status and preserve the backend's review rules.
+  details can refresh evaluation status, rejudge terminal submissions, export/copy
+  evaluation details and preserve the backend's review rules.
 
 For a public development tunnel, set `FLOWJUDGE_DEV_ORIGINS` to its hostname
 (without `https://`). Redirects use the public request origin and do not carry

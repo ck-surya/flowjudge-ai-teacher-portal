@@ -4,12 +4,12 @@ import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Badge } from '@/components/badge'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Clipboard, Download, RotateCcw } from 'lucide-react'
 import { RequestState } from '@/components/request-state'
 import { SubmissionFile } from '@/components/submission-file'
 import { useRequest } from '@/lib/use-request'
 import { errorMessage } from '@/lib/api-client'
-import { getSubmission, startReview, saveReview } from '@/lib/teacherService'
+import { getSubmission, startReview, saveReview, rejudgeSubmission } from '@/lib/teacherService'
 
 type SubmissionPageProps = {
   params: Promise<{ id: string }>
@@ -23,6 +23,7 @@ export default function SubmissionDetailPage({ params }: SubmissionPageProps) {
   const [verdict, setVerdict] = useState<'CORRECT' | 'INCORRECT' | 'NEEDS_CHANGES'>('CORRECT')
   const [feedback, setFeedback] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [isRejudging, setIsRejudging] = useState(false)
 
   useEffect(() => {
     if (submission?.review?.teacherVerdict) setVerdict(submission.review.teacherVerdict)
@@ -45,8 +46,66 @@ export default function SubmissionDetailPage({ params }: SubmissionPageProps) {
     finally { setIsSaving(false) }
   }
 
+  const submissionReport = () => {
+    if (!submission) return ''
+    return [
+      `Submission: ${submission.id}`,
+      `Student: ${submission.studentName}`,
+      `Class: ${submission.className}`,
+      `Module: ${submission.moduleName}`,
+      `Problem: ${submission.problemName}`,
+      `Submitted: ${new Date(submission.submissionTime).toLocaleString()}`,
+      `Automatic status: ${submission.automaticStatus}`,
+      `Verdict: ${submission.verdict}`,
+      `DOMjudge ID: ${submission.domjudgeId}`,
+      `Review status: ${submission.reviewStatus.replaceAll('_', ' ')}`,
+      submission.errorMessage ? `Failure: ${submission.errorMessage}` : '',
+      '',
+      'Generated code:',
+      submission.generatedCode || 'Generated code is not available yet.',
+    ].filter(Boolean).join('\n')
+  }
+
+  const copySubmission = async () => {
+    setActionError('')
+    setSuccess('')
+    try {
+      await navigator.clipboard.writeText(submissionReport())
+      setSuccess('Submission details copied.')
+    } catch (reason) { setActionError(errorMessage(reason)) }
+  }
+
+  const exportSubmission = () => {
+    if (!submission) return
+    const blob = new Blob([submissionReport()], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `submission-${submission.id}.txt`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    setSuccess('Submission export downloaded.')
+  }
+
+  const handleRejudge = async () => {
+    if (!submission) return
+    setIsRejudging(true)
+    setActionError('')
+    setSuccess('')
+    try {
+      const updated = await rejudgeSubmission(id)
+      setSubmission(updated)
+      retry()
+      setSuccess('Rejudge started. Refresh evaluation to see the latest verdict.')
+    } catch (reason) { setActionError(errorMessage(reason)) }
+    finally { setIsRejudging(false) }
+  }
+
   if (!submission) return <DashboardLayout title="Submission Review"><RequestState loading={loading} error={error} onRetry={retry} /></DashboardLayout>
   const readOnly = submission.reviewStatus === 'NOT_REQUESTED' || submission.reviewStatus === 'REVIEWED'
+  const canRejudge = submission.automaticStatus === 'COMPLETED' || submission.automaticStatus === 'FAILED'
 
   const autoStatusMap = {
     COMPLETED: 'success',
@@ -64,7 +123,12 @@ export default function SubmissionDetailPage({ params }: SubmissionPageProps) {
         <div className="flex flex-wrap gap-4 justify-between"><Link href="/submissions" className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
             <ChevronLeft size={20} />
             <span>Back to Submissions</span>
-        </Link><button onClick={retry} disabled={isSaving || loading} className="px-3 py-2 border border-border rounded-lg disabled:opacity-50">Refresh evaluation</button></div>
+        </Link><div className="flex flex-wrap gap-2">
+          <button onClick={copySubmission} disabled={isSaving || isRejudging} className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg disabled:opacity-50"><Clipboard size={16} />Copy</button>
+          <button onClick={exportSubmission} disabled={isSaving || isRejudging} className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg disabled:opacity-50"><Download size={16} />Export</button>
+          {canRejudge && <button onClick={handleRejudge} disabled={isSaving || isRejudging || loading} className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg disabled:opacity-50"><RotateCcw size={16} />{isRejudging ? 'Rejudging...' : 'Rejudge'}</button>}
+          <button onClick={retry} disabled={isSaving || isRejudging || loading} className="px-3 py-2 border border-border rounded-lg disabled:opacity-50">Refresh evaluation</button>
+        </div></div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">

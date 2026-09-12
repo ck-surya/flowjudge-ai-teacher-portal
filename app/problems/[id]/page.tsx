@@ -26,13 +26,13 @@ function ProblemDetails({ id }: { id: string }) {
             <Badge variant={problem.isActive ? 'success' : 'default'}>{problem.isActive ? 'Active' : 'Inactive'}</Badge>
             <span className="text-sm text-muted-foreground">{problem.difficulty?.replaceAll('_', ' ') ?? 'Difficulty unspecified'}</span>
           </div>
-          <p className="whitespace-pre-wrap">{problem.description || 'Read the PDF statement for the problem instructions.'}</p>
+          <p className="whitespace-pre-wrap">{problem.description || 'Read the problem statement for the problem instructions.'}</p>
           <p className="text-sm text-muted-foreground">{problem.submissionCount} submissions across your classes</p>
           <Link href={`/submissions?${new URLSearchParams({ problemId: id, moduleId: problem.module.id, ...(classId ? { classId } : {}) })}`} className="inline-block px-4 py-2 border border-border rounded-lg">View problem submissions</Link>
         </div>
         <section className="bg-card border border-border rounded-lg p-6 space-y-4" aria-label="Problem statement">
           <h3 className="text-lg font-semibold">Problem Statement</h3>
-          {problem.statementPdfUrl ? <ProblemStatement key={id} id={id} /> : <p className="text-muted-foreground">No PDF statement is available for this problem.</p>}
+          {problem.statementPdfUrl || problem.statementHtmlUrl ? <ProblemStatement key={id} id={id} /> : <p className="text-muted-foreground">No statement is available for this problem.</p>}
         </section>
       </>}
     </div>

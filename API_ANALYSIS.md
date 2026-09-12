@@ -31,8 +31,10 @@ The live file endpoint initially serialized a `StreamableFile` into JSON via the
 global response envelope interceptor. The sibling backend fix bypasses that
 wrapper for streams. The portal rejects JSON as a flowchart download.
 
-Unsupported authoring, rejudge, profile mutation and draft controls were removed;
-see README for the complete capability limits and setup instructions.
+Unsupported authoring, profile mutation and draft controls were removed; see
+README for the complete capability limits and setup instructions. Rejudge uses
+the backend's safe `POST /teachers/submissions/:submissionId/rejudge` endpoint
+and is shown only for terminal submissions.
 
 Protected page routes are guarded in `proxy.ts`. Cookie presence is followed by
 a live `/teachers/me` validation before rendering. The API proxy also requires a
@@ -43,7 +45,7 @@ logout or 401. Cross-origin mutation requests are rejected.
 
 - `GET /teachers/classes/:classId/modules/:moduleId/problems`: full problem catalog, including inactive and unattempted problems.
 - `GET /teachers/problems/:problemId`: description, difficulty, module, active state and submission count.
-- `GET /teachers/problems/:problemId/statement`: authenticated PDF bytes. The portal uses this endpoint instead of following external statement metadata URLs.
+- `GET /teachers/problems/:problemId/statement`: authenticated problem statement bytes (`application/pdf` or `text/html`). The portal uses this endpoint instead of following external statement metadata URLs.
 - `GET /teachers/students/:studentId`: profile, teacher-visible memberships, summary and history.
 
 Review details retain events, reviewer names and timestamps. Dashboard evaluation

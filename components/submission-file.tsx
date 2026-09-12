@@ -12,7 +12,7 @@ export function SubmissionFile({ id, filename }: { id: string; filename: string 
 export function ProblemStatement({ id }: { id: string }) {
   const [opened, setOpened] = useState(false)
   return opened ? <AuthenticatedFile id={id} filename={`problem-${id}.pdf`} kind="statement" />
-    : <button onClick={() => setOpened(true)} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg">View problem statement PDF</button>
+    : <button onClick={() => setOpened(true)} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg">View problem statement</button>
 }
 
 function AuthenticatedFile({ id, filename, kind }: { id: string; filename: string; kind: 'submission' | 'statement' }) {
@@ -37,10 +37,10 @@ function AuthenticatedFile({ id, filename, kind }: { id: string; filename: strin
     {file && <>
       {['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)
         ? <img src={file.url} alt="Submitted flowchart" className="w-full max-h-[600px] object-contain bg-secondary rounded-lg" />
-        : file.type === 'application/pdf'
-          ? <iframe src={file.url} title={kind === 'statement' ? 'Problem statement PDF' : 'Submitted flowchart PDF'} className="w-full h-[600px] border border-border rounded-lg" />
+        : file.type === 'application/pdf' || file.type === 'text/html'
+          ? <iframe src={file.url} title={kind === 'statement' ? 'Problem statement' : 'Submitted flowchart PDF'} className="w-full h-[600px] border border-border rounded-lg" />
           : <p className="text-muted-foreground">Download this file to view the flowchart.</p>}
-      <a href={file.url} download={filename} className="inline-block px-4 py-2 border border-border rounded-lg hover:bg-secondary">{kind === 'statement' ? 'Download problem statement' : 'Download flowchart'}</a>
+      <a href={file.url} download={file.type === 'text/html' ? filename.replace(/\\.pdf$/, '.html') : filename} className="inline-block px-4 py-2 border border-border rounded-lg hover:bg-secondary">{kind === 'statement' ? 'Download problem statement' : 'Download flowchart'}</a>
     </>}
   </div>
 }

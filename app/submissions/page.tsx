@@ -9,7 +9,7 @@ import { RequestState } from '@/components/request-state'
 import { useRequest } from '@/lib/use-request'
 import { ClassModuleFilters } from '@/components/class-module-filters'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { listSubmissions, type SubmissionStatus } from '@/lib/teacherService'
+import { listSubmissions, type SubmissionReviewStatus, type SubmissionStatus } from '@/lib/teacherService'
 
 function SubmissionsContent() {
   const query = useSearchParams()
@@ -21,6 +21,8 @@ function SubmissionsContent() {
   const studentFilter = query.get('studentId') ?? ''
   const statuses: SubmissionStatus[] = ['UPLOADED', 'CONVERTING', 'SUBMITTING', 'JUDGING', 'COMPLETED', 'FAILED']
   const statusFilter = statuses.find(status => status === query.get('status')) ?? ''
+  const reviewStatuses: SubmissionReviewStatus[] = ['NOT_REQUESTED', 'REQUESTED', 'IN_REVIEW', 'REVIEWED']
+  const reviewStatusFilter = reviewStatuses.find(status => status === query.get('reviewStatus')) ?? ''
   const updateFilters = (updates: Record<string, string>) => {
     const next = new URLSearchParams(query.toString())
     for (const [key, value] of Object.entries(updates)) { if (value) next.set(key, value); else next.delete(key) }
@@ -28,7 +30,14 @@ function SubmissionsContent() {
   }
   const [searchTerm, setSearchTerm] = useState('')
   const [verdictFilter, setVerdictFilter] = useState('all')
-  const { data, loading, error, retry } = useRequest(() => listSubmissions({ classId: classFilter || undefined, moduleId: moduleFilter || undefined, status: statusFilter || undefined, studentId: studentFilter || undefined }), [classFilter, moduleFilter, statusFilter, studentFilter])
+  const { data, loading, error, retry } = useRequest(() => listSubmissions({
+    classId: classFilter || undefined,
+    moduleId: moduleFilter || undefined,
+    problemId: problemFilter || undefined,
+    status: statusFilter || undefined,
+    studentId: studentFilter || undefined,
+    reviewStatus: reviewStatusFilter || undefined,
+  }), [classFilter, moduleFilter, problemFilter, statusFilter, studentFilter, reviewStatusFilter])
   const rows = data ?? []
 
   const verdictColors = {
@@ -43,9 +52,8 @@ function SubmissionsContent() {
     const matchesSearch =
       submission.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       submission.problemName.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesProblem = !problemFilter || submission.problemId === problemFilter
     const matchesVerdict = verdictFilter === 'all' || submission.verdict === verdictFilter
-    return matchesSearch && matchesProblem && matchesVerdict
+    return matchesSearch && matchesVerdict
   })
 
   return (
@@ -72,6 +80,9 @@ function SubmissionsContent() {
               onModuleChange={moduleId => updateFilters({ moduleId, problemId: '' })} />
             <label className="text-sm space-y-1">Evaluation status<select aria-label="Filter by evaluation status" value={statusFilter} onChange={e => updateFilters({ status: e.target.value })} className="block w-full px-3 py-2 border border-border rounded-lg bg-card">
               <option value="">All statuses</option>{statuses.map(status => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}
+            </select></label>
+            <label className="text-sm space-y-1">Review status<select aria-label="Filter by review status" value={reviewStatusFilter} onChange={e => updateFilters({ reviewStatus: e.target.value })} className="block w-full px-3 py-2 border border-border rounded-lg bg-card">
+              <option value="">All review statuses</option>{reviewStatuses.map(status => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}
             </select></label>
             <select
               aria-label="Filter by verdict"

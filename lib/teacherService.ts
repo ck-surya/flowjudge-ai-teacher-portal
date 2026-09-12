@@ -2,6 +2,7 @@ import { apiFetch, apiRequest, ApiError, clearSession } from './api-client'
 
 export type Teacher = { id: string; name: string; email: string; role: 'teacher' }
 export type ReviewStatus = 'REQUESTED' | 'IN_REVIEW' | 'REVIEWED'
+export type SubmissionReviewStatus = ReviewStatus | 'NOT_REQUESTED'
 export type TeacherVerdict = 'CORRECT' | 'INCORRECT' | 'NEEDS_CHANGES'
 export type SubmissionStatus = 'UPLOADED' | 'CONVERTING' | 'SUBMITTING' | 'JUDGING' | 'COMPLETED' | 'FAILED'
 export type Student = {
@@ -20,7 +21,7 @@ export type ReviewEvent = {
 }
 export type Problem = {
   id: string; title: string; description: string | null; difficulty: string | null
-  displayOrder: number; isActive: boolean; statementPdfUrl: string | null
+  displayOrder: number; isActive: boolean; statementPdfUrl: string | null; statementHtmlUrl?: string | null
   domjudgeContestId: string; domjudgeProblemId: string; submissionCount: number
 }
 export type ProblemDetails = Problem & { module: { id: string; name: string } }
@@ -42,14 +43,14 @@ export type Submission = {
   id: string; studentId: string; classId: string; moduleId: string; problemId: string
   studentName: string; className: string; moduleName: string; problemName: string
   submissionTime: string; automaticStatus: SubmissionStatus; verdict: string
-  reviewStatus: ReviewStatus | 'NOT_REQUESTED'; review?: Review
+  reviewStatus: SubmissionReviewStatus; review?: Review
   domjudgeId: string; generatedCode: string; originalFileName: string; fileMimeType: string
   errorMessage: string | null; language: string
 }
 
 type ApiClass = {
   id: string; name: string; code: string; isActive: boolean; studentCount?: number
-  moduleCount?: number; modules?: ApiModule[]
+  moduleCount?: number; pendingReviewCount?: number; modules?: ApiModule[]
 }
 type ApiModule = {
   id: string; name: string; description: string | null; problemCount: number
@@ -106,7 +107,7 @@ export async function getTeacher(): Promise<Teacher> {
 function mapClass(row: ApiClass): ClassItem {
   return { id: row.id, name: row.name, code: row.code, isActive: row.isActive,
     students: row.studentCount ?? 0, modules: row.moduleCount ?? row.modules?.length ?? 0,
-    pendingReviews: null }
+    pendingReviews: row.pendingReviewCount ?? null }
 }
 
 export async function listClasses(): Promise<ClassItem[]> {
@@ -152,8 +153,10 @@ export async function getProblemStatement(id: string): Promise<Blob> {
   // Use the authenticated endpoint even when metadata contains an old external URL.
   const response = await apiRequest(`/teachers/problems/${segment(id)}/statement`)
   const type = response.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase()
-  if (type !== 'application/pdf') throw new ApiError('The problem statement PDF is unavailable.', 502)
-  return new Blob([await response.arrayBuffer()], { type: 'application/pdf' })
+  if (type !== 'application/pdf' && type !== 'text/html') {
+    throw new ApiError('The problem statement is unavailable.', 502)
+  }
+  return new Blob([await response.arrayBuffer()], { type })
 }
 
 const verdicts: Record<string, string> = {
@@ -204,12 +207,13 @@ async function allPages<T>(path: string, filters: Record<string, string | undefi
     query.set('cursor', page.nextCursor)
   }
 }
-export async function listSubmissions(filters: { classId?: string; moduleId?: string; status?: SubmissionStatus; studentId?: string } = {}): Promise<Submission[]> {
+export async function listSubmissions(filters: { classId?: string; moduleId?: string; problemId?: string; status?: SubmissionStatus; studentId?: string; reviewStatus?: SubmissionReviewStatus } = {}): Promise<Submission[]> {
   const classes = filters.classId ? [await getClass(filters.classId)] : await listClasses()
   const rows: Submission[] = []
   for (const classroom of classes) {
     const page = await allPages<ApiSubmission>(`/teachers/classes/${segment(classroom.id)}/submissions`, {
-      moduleId: filters.moduleId, status: filters.status, studentId: filters.studentId,
+      moduleId: filters.moduleId, problemId: filters.problemId, status: filters.status, studentId: filters.studentId,
+      reviewStatus: filters.reviewStatus,
     })
     rows.push(...page.map(row => mapSubmission(row, classroom)))
   }
@@ -217,6 +221,9 @@ export async function listSubmissions(filters: { classId?: string; moduleId?: st
 }
 export async function getSubmission(id: string): Promise<Submission> {
   return mapSubmission(await apiFetch<ApiSubmission>(`/teachers/submissions/${segment(id)}`))
+}
+export async function rejudgeSubmission(id: string): Promise<Submission> {
+  return mapSubmission(await apiFetch<ApiSubmission>(`/teachers/submissions/${segment(id)}/rejudge`, { method: 'POST' }))
 }
 export async function getSubmissionFile(id: string): Promise<Blob> {
   const response = await apiRequest(`/teachers/submissions/${segment(id)}/file`)
